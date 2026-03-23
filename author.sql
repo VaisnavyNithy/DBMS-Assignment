@@ -27,7 +27,7 @@ SET time_zone = "+00:00";
 -- Table structure for table `author`
 --
 
-CREATE TABLE `author` (
+CREATE TABLE `author1` (
   `Author_Id` char(5) NOT NULL,
   `Name` varchar(100) NOT NULL,
   `Bio` varchar(500) DEFAULT NULL
