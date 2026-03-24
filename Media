@@ -1,0 +1,96 @@
+-- phpMyAdmin SQL Dump
+-- version 5.2.0
+-- https://www.phpmyadmin.net/
+--
+-- Host: 127.0.0.1
+-- Generation Time: Mar 24, 2026 at 03:59 PM
+-- Server version: 10.4.27-MariaDB
+-- PHP Version: 8.1.12
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Database: `dbms`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `media`
+--
+
+CREATE TABLE `media` (
+  `Media_id` char(5) NOT NULL,
+  `Type` varchar(50) DEFAULT NULL,
+  `URL` varchar(255) DEFAULT NULL,
+  `Article_id` char(5) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `media`
+--
+
+INSERT INTO `media` (`Media_id`, `Type`, `URL`, `Article_id`) VALUES
+('M001', 'Image', 'https://example.com/economy2025.jpg', 'A001'),
+('M002', 'Video', 'https://example.com/economy_analysis.mp4', 'A001'),
+('M003', 'Image', 'https://example.com/literature.jpg', 'A002'),
+('M004', 'Image', 'https://example.com/poetry.jpg', 'A002'),
+('M005', 'Image', 'https://example.com/culture.jpg', 'A003'),
+('M006', 'Video', 'https://example.com/cultural_diversity.mp4', 'A003'),
+('M007', 'Video', 'https://example.com/journalism.mp4', 'A004'),
+('M008', 'Image', 'https://example.com/literature_contribution.jpg', 'A005'),
+('M009', 'Image', 'https://example.com/language_identity.jpg', 'A006'),
+('M010', 'Video', 'https://example.com/health_campaign.mp4', 'A007'),
+('M011', 'Image', 'https://example.com/environment.jpg', 'A008'),
+('M012', 'Video', 'https://example.com/environment_awareness.mp4', 'A008'),
+('M013', 'Image', 'https://example.com/startup.jpg', 'A009'),
+('M014', 'Video', 'https://example.com/investigative.mp4', 'A010'),
+('M015', 'Image', 'https://example.com/ai_technology.jpg', 'A011'),
+('M016', 'Video', 'https://example.com/ai_future.mp4', 'A011'),
+('M017', 'Image', 'https://example.com/education_reforms.jpg', 'A012'),
+('M018', 'Image', 'https://example.com/tourism.jpg', 'A013'),
+('M019', 'Video', 'https://example.com/tourism_growth.mp4', 'A013'),
+('M020', 'Image', 'https://example.com/festivals.jpg', 'A014'),
+('M021', 'Image', 'https://example.com/financial_literacy.jpg', 'A015'),
+('M022', 'Image', 'https://example.com/urban_development.jpg', 'A016'),
+('M023', 'Video', 'https://example.com/smart_city.mp4', 'A016'),
+('M024', 'Image', 'https://example.com/online_learning.jpg', 'A017'),
+('M025', 'Image', 'https://example.com/wildlife.jpg', 'A018'),
+('M026', 'Video', 'https://example.com/wildlife_conservation.mp4', 'A018'),
+('M027', 'Image', 'https://example.com/international_business.jpg', 'A019'),
+('M028', 'Image', 'https://example.com/art_heritage.jpg', 'A020'),
+('M029', 'Video', 'https://example.com/cultural_arts.mp4', 'A020');
+
+--
+-- Indexes for dumped tables
+--
+
+--
+-- Indexes for table `media`
+--
+ALTER TABLE `media`
+  ADD PRIMARY KEY (`Media_id`),
+  ADD KEY `Article_id` (`Article_id`);
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `media`
+--
+ALTER TABLE `media`
+  ADD CONSTRAINT `media_ibfk_1` FOREIGN KEY (`Article_id`) REFERENCES `article` (`Article_id`);
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
