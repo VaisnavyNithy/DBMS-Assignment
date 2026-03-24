@@ -1,0 +1,77 @@
+-- phpMyAdmin SQL Dump
+-- version 5.2.0
+-- https://www.phpmyadmin.net/
+--
+-- Host: 127.0.0.1
+-- Generation Time: Mar 24, 2026 at 03:55 PM
+-- Server version: 10.4.27-MariaDB
+-- PHP Version: 8.1.12
+
+SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
+START TRANSACTION;
+SET time_zone = "+00:00";
+
+
+/*!40101 SET @OLD_CHARACTER_SET_CLIENT=@@CHARACTER_SET_CLIENT */;
+/*!40101 SET @OLD_CHARACTER_SET_RESULTS=@@CHARACTER_SET_RESULTS */;
+/*!40101 SET @OLD_COLLATION_CONNECTION=@@COLLATION_CONNECTION */;
+/*!40101 SET NAMES utf8mb4 */;
+
+--
+-- Database: `dbms`
+--
+
+-- --------------------------------------------------------
+
+--
+-- Table structure for table `search_log`
+--
+
+CREATE TABLE `search_log` (
+  `Log_id` char(5) NOT NULL,
+  `Query_Text` varchar(255) DEFAULT NULL,
+  `Search_date` date DEFAULT NULL,
+  `User_id` char(5) DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+--
+-- Dumping data for table `search_log`
+--
+
+INSERT INTO `search_log` (`Log_id`, `Query_Text`, `Search_date`, `User_id`) VALUES
+('L001', 'economic trends 2025', '2025-01-09', 'U001'),
+('L002', 'economy inflation sri lanka', '2025-01-10', 'U002'),
+('L003', 'modern literature sri lanka', '2025-02-14', 'U003'),
+('L004', 'literature cultural impact', '2025-02-15', 'U004'),
+('L005', 'cultural diversity sri lanka', '2025-03-04', 'U005'),
+('L006', 'ethnic diversity sri lanka', '2025-03-05', 'U006'),
+('L007', 'journalism ethics importance', '2025-03-19', 'U007'),
+('L008', 'sri lankan literature contributions', '2025-04-01', 'U008'),
+('L009', 'language and national identity', '2025-04-17', 'U009'),
+('L010', 'investigative journalism role', '2025-06-19', 'U010');
+
+--
+-- Indexes for dumped tables
+--
+
+--
+-- Indexes for table `search_log`
+--
+ALTER TABLE `search_log`
+  ADD PRIMARY KEY (`Log_id`),
+  ADD KEY `User_id` (`User_id`);
+
+--
+-- Constraints for dumped tables
+--
+
+--
+-- Constraints for table `search_log`
+--
+ALTER TABLE `search_log`
+  ADD CONSTRAINT `search_log_ibfk_1` FOREIGN KEY (`User_id`) REFERENCES `user` (`User_id`);
+COMMIT;
+
+/*!40101 SET CHARACTER_SET_CLIENT=@OLD_CHARACTER_SET_CLIENT */;
+/*!40101 SET CHARACTER_SET_RESULTS=@OLD_CHARACTER_SET_RESULTS */;
+/*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
