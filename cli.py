@@ -234,8 +234,7 @@ def user_search_log():
     while True:
         print_header("Search Log")
         print("  1. Search & Save")
-        print("  2. View My Search Logs")
-        print("  3. Delete a Log")
+        
         print("  0. Back")
         print_separator()
         choice = input("  Select option: ").strip()
@@ -275,20 +274,7 @@ def user_search_log():
             print_table(["Article_id", "Title", "Content", "Date", "Author_id"], cursor.fetchall())
             pause()
 
-        elif choice == "2":
-            cursor.execute("SELECT Log_id, Query_Text, Search_date, User_id FROM `search_log`")
-            print_table(["Log_id", "Query", "Date", "User_id"], cursor.fetchall())
-            pause()
-
-        elif choice == "3":
-            cursor.execute("SELECT Log_id, Query_Text, Search_date, User_id FROM `search_log`")
-            rows = cursor.fetchall()
-            print_table(["Log_id", "Query", "Date", "User_id"], rows)
-            log_id = input("  Enter Log ID to delete: ").strip()
-            if log_id:
-                execute("DELETE FROM `search_log` WHERE Log_id=%s", (log_id,))
-                print("  ✓ Log deleted.")
-            pause()
+      
 
         elif choice == "0":
             break
