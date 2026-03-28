@@ -660,10 +660,10 @@ def admin_articles():
 def admin_comments():
     while True:
         print_header("Admin — Comments")
-        print("  1. Add Comment")
-        print("  2. Update Comment")
-        print("  3. Delete Comment")
-        print("  4. Search / View Comments")
+        
+        
+        print("  1. Delete Comment")
+        print("  2. Search / View Comments")
         print("  0. Back")
         print_separator()
         choice = input("  Select option: ").strip()
@@ -687,28 +687,9 @@ def admin_comments():
             print("  ✓ Comment added.")
             pause()
 
+        
+
         elif choice == "2":
-            cid     = input("  Comment ID to update: ").strip()
-            print("\n  Select new user:")
-            _, uid = pick_from_map(user_map)
-            print("\n  Select new article:")
-            _, artid = pick_from_map(article_map)
-            content = input("  New content: ").strip()
-            date    = input(f"  New date [{datetime.date.today()}]: ").strip() or str(datetime.date.today())
-            execute(
-                "UPDATE `comment` SET User_id=%s, Article_id=%s, Content=%s, Comment_date=%s WHERE Comment_id=%s",
-                (uid, artid, content, date, cid)
-            )
-            print("  ✓ Comment updated.")
-            pause()
-
-        elif choice == "3":
-            cid = input("  Comment ID to delete: ").strip()
-            execute("DELETE FROM `comment` WHERE Comment_id=%s", (cid,))
-            print("  ✓ Comment deleted.")
-            pause()
-
-        elif choice == "4":
             keyword = input("  Search by content (blank for all): ").strip()
             if keyword:
                 cursor.execute(
