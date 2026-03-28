@@ -1,10 +1,13 @@
+#Group 8 DBMS programming
+
+# Importing required moduels
 import tkinter as tk
 from tkinter import ttk, messagebox, filedialog
 import mysql.connector
 import matplotlib.pyplot as plt
 import datetime
 
-# ================= DATABASE =================
+#Database connection
 conn = mysql.connector.connect(
     host="localhost",
     user="root",
