@@ -672,22 +672,10 @@ def admin_comments():
         article_map = load_map("SELECT Article_id, Title FROM `article`")
 
         if choice == "1":
-            cid     = input("  Comment ID: ").strip()
-            print("\n  Select user:")
-            _, uid = pick_from_map(user_map)
-            print("\n  Select article:")
-            _, artid = pick_from_map(article_map)
-            content = input("  Content: ").strip()
-            date    = input(f"  Date [{datetime.date.today()}]: ").strip() or str(datetime.date.today())
-            execute(
-                "INSERT INTO `comment`(Comment_id, Article_id, User_id, Content, Comment_date) "
-                "VALUES (%s,%s,%s,%s,%s)",
-                (cid, artid, uid, content, date)
-            )
-            print("  ✓ Comment added.")
-            pause()
-
-        
+            cid = input("  Comment ID to delete: ").strip()
+            execute("DELETE FROM `comment` WHERE Comment_id=%s", (cid,))
+            print("  ✓ Comment deleted.")
+            pause()   
 
         elif choice == "2":
             keyword = input("  Search by content (blank for all): ").strip()
