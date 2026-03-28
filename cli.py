@@ -1,7 +1,9 @@
+#Group 8 DBMS project
+# Done by:- Vaisnavy, Shehan and Senura
 import mysql.connector
 import datetime
 
-# ================= DATABASE =================
+# DATABASE 
 conn = mysql.connector.connect(
     host="localhost",
     user="root",
@@ -10,7 +12,7 @@ conn = mysql.connector.connect(
 )
 cursor = conn.cursor()
 
-# ================= UTIL =================
+#  UTILITY
 def execute(query, params=()):
     try:
         cursor.execute(query, params)
@@ -73,9 +75,8 @@ def pick_from_map(name_map, prompt="Select"):
 def pause():
     input("\n  Press Enter to continue...")
 
-# =========================================================
 #  USER PORTAL
-# =========================================================
+
 def user_portal():
     while True:
         print_header("👤  USER PORTAL")
@@ -106,7 +107,7 @@ def user_portal():
         else:
             print("  Invalid option.")
 
-# ---------- REGISTER ----------
+# REGISTER 
 def user_register():
     while True:
         print_header("Register / View Users")
@@ -138,7 +139,7 @@ def user_register():
         elif choice == "0":
             break
 
-# ---------- VIEW ARTICLES ----------
+#  VIEW ARTICLES 
 def user_view_articles():
     print_header("View Articles")
     keyword = input("  Search keyword (leave blank for all): ").strip()
@@ -153,7 +154,7 @@ def user_view_articles():
     print_table(["Article_id", "Title", "Content", "Published_Date", "Author_id"], cursor.fetchall())
     pause()
 
-# ---------- COMMENT ----------
+#  COMMENT 
 def user_comment():
     while True:
         print_header("Comment on Articles")
@@ -215,21 +216,21 @@ def user_comment():
         elif choice == "0":
             break
 
-# ---------- TAGS ----------
+#  TAGS 
 def user_view_tags():
     print_header("Tags")
     cursor.execute("SELECT * FROM tag")
     print_table(["Tag_id", "Name"], cursor.fetchall())
     pause()
 
-# ---------- CATEGORIES ----------
+#  CATEGORIES 
 def user_view_categories():
     print_header("Categories")
     cursor.execute("SELECT Category_id, Name FROM category")
     print_table(["Category_id", "Name"], cursor.fetchall())
     pause()
 
-# ---------- SEARCH LOG ----------
+#  SEARCH LOG 
 def user_search_log():
     while True:
         print_header("Search Log")
@@ -280,9 +281,9 @@ def user_search_log():
             break
 
 
-# =========================================================
+
 #  AUTHOR PORTAL
-# =========================================================
+
 def author_portal():
     while True:
         print_header("✍  AUTHOR PORTAL")
@@ -310,7 +311,7 @@ def author_portal():
         else:
             print("  Invalid option.")
 
-# ---------- ADD ARTICLE ----------
+#  ADD ARTICLE
 def author_add_article():
     while True:
         print_header("Add Article")
@@ -360,7 +361,7 @@ def author_add_article():
         elif choice == "0":
             break
 
-# ---------- UPLOAD MEDIA ----------
+# UPLOAD MEDIA 
 def author_upload_media():
     while True:
         print_header("Upload Media")
@@ -401,7 +402,7 @@ def author_upload_media():
         elif choice == "0":
             break
 
-# ---------- VIEW COMMENTS ----------
+#  VIEW COMMENTS 
 def author_view_comments():
     print_header("View Comments")
     keyword = input("  Filter by article title (blank for all): ").strip()
@@ -423,14 +424,14 @@ def author_view_comments():
     print_table(["Comment_id", "User", "Article", "Comment", "Date"], cursor.fetchall())
     pause()
 
-# ---------- VIEW COUNT ----------
+#  VIEW COUNT 
 def author_view_count():
     print_header("Article View Count")
     cursor.execute("SELECT Article_id, COUNT(*) FROM article_view GROUP BY Article_id")
     print_table(["Article_id", "Views"], cursor.fetchall())
     pause()
 
-# ---------- VIEWS BY AGE ----------
+#  VIEWS BY AGE 
 def author_views_by_age():
     print_header("Views by Age Category")
     cursor.execute("""
@@ -454,9 +455,9 @@ def author_views_by_age():
     pause()
 
 
-# =========================================================
+
 #  ADMIN PORTAL
-# =========================================================
+
 def admin_portal():
     while True:
         print_header("🔧  ADMIN PORTAL")
@@ -499,7 +500,7 @@ def admin_portal():
         else:
             print("  Invalid option.")
 
-# ---------- USERS ----------
+#  USERS 
 def admin_users():
     while True:
         print_header("Admin — Users")
@@ -553,7 +554,7 @@ def admin_users():
         elif choice == "0":
             break
 
-# ---------- CATEGORIES ----------
+#  CATEGORIES 
 def admin_categories():
     while True:
         print_header("Admin — Categories")
@@ -579,7 +580,7 @@ def admin_categories():
         elif choice == "0":
             break
 
-# ---------- TAGS ----------
+#  TAGS 
 def admin_tags():
     while True:
         print_header("Admin — Tags")
@@ -609,7 +610,7 @@ def admin_tags():
         elif choice == "0":
             break
 
-# ---------- ARTICLES ----------
+#  ARTICLES 
 def admin_articles():
     while True:
         print_header("Admin — Articles")
@@ -656,7 +657,7 @@ def admin_articles():
         elif choice == "0":
             break
 
-# ---------- COMMENTS ----------
+#  COMMENTS 
 def admin_comments():
     while True:
         print_header("Admin — Comments")
@@ -701,7 +702,7 @@ def admin_comments():
         elif choice == "0":
             break
 
-# ---------- MEDIA ----------
+#  MEDIA 
 def admin_media():
     while True:
         print_header("Admin — Media")
@@ -756,7 +757,7 @@ def admin_media():
         elif choice == "0":
             break
 
-# ---------- SEARCH LOG ----------
+#  SEARCH LOG 
 def admin_search_log():
     while True:
         print_header("Admin — Search Log")
@@ -790,14 +791,14 @@ def admin_search_log():
         elif choice == "0":
             break
 
-# ---------- VIEW COUNT ----------
+#  VIEW COUNT
 def admin_view_count():
     print_header("Admin — View Count")
     cursor.execute("SELECT Article_id, COUNT(*) FROM article_view GROUP BY Article_id")
     print_table(["Article_id", "Views"], cursor.fetchall())
     pause()
 
-# ---------- VIEWS BY AGE ----------
+#  VIEWS BY AGE 
 def admin_views_by_age():
     print_header("Admin — Views by Age Category")
     cursor.execute("""
@@ -820,7 +821,7 @@ def admin_views_by_age():
     print_table(["Age Category", "Article", "Views"], cursor.fetchall())
     pause()
 
-# ---------- REPORTS (text-based summaries) ----------
+#  REPORTS 
 def admin_reports():
     while True:
         print_header("Admin — Reports")
@@ -976,9 +977,8 @@ def admin_reports():
             print("  Invalid option.")
 
 
-# =========================================================
 #  HOME / ENTRY POINT
-# =========================================================
+
 def home_screen():
     while True:
         print_header("UOM NEWS PORTAL")
