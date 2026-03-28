@@ -1,0 +1,1591 @@
+import tkinter as tk
+from tkinter import ttk, messagebox, filedialog
+import mysql.connector
+import matplotlib.pyplot as plt
+import datetime
+
+# ================= DATABASE =================
+conn = mysql.connector.connect(
+    host="localhost",
+    user="root",
+    password="",
+    database="uomnewsportaldbtest"
+)
+cursor = conn.cursor()
+
+# ================= UTIL =================
+def execute(query, params=()):
+    try:
+        cursor.execute(query, params)
+        conn.commit()
+    except Exception as e:
+        messagebox.showerror("DB Error", str(e))
+
+def create_tree(parent, cols):
+    frame = ttk.Frame(parent)
+    frame.pack(fill='both', expand=True)
+    tree = ttk.Treeview(frame, columns=cols, show='headings')
+    for c in cols:
+        tree.heading(c, text=c)
+        tree.column(c, width=140)
+    vsb = ttk.Scrollbar(frame, orient="vertical", command=tree.yview)
+    hsb = ttk.Scrollbar(frame, orient="horizontal", command=tree.xview)
+    tree.configure(yscrollcommand=vsb.set, xscrollcommand=hsb.set)
+    tree.grid(row=0, column=0, sticky="nsew")
+    vsb.grid(row=0, column=1, sticky="ns")
+    hsb.grid(row=1, column=0, sticky="ew")
+    frame.grid_rowconfigure(0, weight=1)
+    frame.grid_columnconfigure(0, weight=1)
+    return tree
+def load_name_map(query):
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    # map Name → ID
+    return {r[1]: r[0] for r in rows}
+
+
+def generate_id(table, column, prefix):
+    cursor.execute(f"SELECT MAX({column}) FROM {table}")
+    result = cursor.fetchone()[0]
+
+    if result is None:
+        return prefix + "001"
+
+    num = int(result.replace(prefix, ""))
+    return prefix + str(num + 1).zfill(3)
+
+
+def load_map(query):
+    cursor.execute(query)
+    rows = cursor.fetchall()
+    return {r[1]: r[0] for r in rows}
+
+
+
+
+# =========================================================
+#  HOME SCREEN
+# =========================================================
+def home_screen():
+    home = tk.Tk()
+    home.title("UOM News Portal")
+    home.geometry("1600x900")
+    home.resizable(False, False)
+
+    tk.Label(home, text="UOM News Portal", font=("Arial", 22, "bold")).pack(pady=30)
+    tk.Label(home, text="Select your portal to continue", font=("Arial", 12)).pack(pady=5)
+
+    btn_frame = tk.Frame(home)
+    btn_frame.pack(pady=30)
+
+    def open_user():
+        home.destroy()
+        user_portal()
+
+    def open_author():
+        home.destroy()
+        author_portal()
+
+    def open_admin():
+        home.destroy()
+        admin_portal()
+
+    tk.Button(btn_frame, text="👤  User Portal",   font=("Arial", 13), width=20,
+              bg="#4a90d9", fg="white", command=open_user).grid(row=0, column=0, padx=10, pady=8)
+    tk.Button(btn_frame, text="✍  Author Portal", font=("Arial", 13), width=20,
+              bg="#27ae60", fg="white", command=open_author).grid(row=1, column=0, padx=10, pady=8)
+    tk.Button(btn_frame, text="🔧  Admin Portal",  font=("Arial", 13), width=20,
+              bg="#c0392b", fg="white", command=open_admin).grid(row=2, column=0, padx=10, pady=8)
+
+    home.mainloop()
+
+
+# =========================================================
+#  USER PORTAL
+# =========================================================
+def user_portal():
+    win = tk.Tk()
+    win.title("UOM News Portal — User Portal")
+    win.geometry("1600x900")
+
+    # top bar
+    top = tk.Frame(win, bg="#4a90d9")
+    top.pack(fill="x")
+    tk.Label(top, text="👤 User Portal", font=("Arial", 14, "bold"),
+             bg="#4a90d9", fg="white").pack(side="left", padx=15, pady=8)
+    tk.Button(top, text="⬅ Back to Home", bg="#2c6fad", fg="white",
+              command=lambda: [win.destroy(), home_screen()]).pack(side="right", padx=10, pady=6)
+
+    nb = ttk.Notebook(win)
+    nb.pack(fill="both", expand=True)
+
+    # ---------- REGISTER / LOGIN ----------
+    reg_frame = ttk.Frame(nb)
+    nb.add(reg_frame, text="Register / Login")
+
+    reg_left = ttk.Frame(reg_frame)
+    reg_left.pack(side="left", fill="y", padx=20, pady=20)
+
+    tk.Label(reg_left, text="Register New User", font=("Arial", 12, "bold")).grid(
+        row=0, column=0, columnspan=2, pady=(0, 10))
+
+    reg_id = tk.Entry(reg_left, state="readonly")
+    def init_user_id():
+        reg_id.config(state="normal")
+        reg_id.delete(0, tk.END)
+        reg_id.insert(0, generate_id("user", "User_id", "U"))
+        reg_id.config(state="readonly")
+    current_user_id = reg_id.get() 
+    reg_name  = tk.Entry(reg_left)
+    reg_email = tk.Entry(reg_left)
+
+    tk.Label(reg_left, text="User ID").grid(row=1, column=0, sticky="w", pady=3)
+    tk.Label(reg_left, text="Name").grid(row=2, column=0, sticky="w", pady=3)
+    tk.Label(reg_left, text="Email").grid(row=3, column=0, sticky="w", pady=3)
+    reg_id.grid(row=1, column=1, pady=3)
+    reg_name.grid(row=2, column=1, pady=3)
+    reg_email.grid(row=3, column=1, pady=3)
+
+    reg_right = ttk.Frame(reg_frame)
+    reg_right.pack(side="right", fill="both", expand=True, padx=10, pady=10)
+    reg_tree = create_tree(reg_right, ("User_id", "Name", "Email"))
+
+    def load_reg_users():
+        reg_tree.delete(*reg_tree.get_children())
+        cursor.execute("SELECT User_id, Name, Email FROM `user`")
+        for r in cursor.fetchall():
+            reg_tree.insert("", tk.END, values=r)
+
+    def register_user():
+        name = reg_name.get().strip()
+        email = reg_email.get().strip()
+    
+        if not name:
+            messagebox.showwarning("Input Error", "Please fill Name.")
+            return
+
+        new_id = generate_id("user", "User_id", "U")
+
+        execute(
+            "INSERT INTO `user`(User_id, Name, Email) VALUES (%s,%s,%s)",
+            (new_id, name, email)
+        )
+
+        messagebox.showinfo("Success", f"User registered with ID {new_id}!")
+
+        # Update ID field for next user
+        reg_id.config(state="normal")
+        reg_id.delete(0, tk.END)
+        reg_id.insert(0, generate_id("user", "User_id", "U"))
+        reg_id.config(state="readonly")
+
+        reg_name.delete(0, tk.END)
+        reg_email.delete(0, tk.END)
+
+        load_reg_users()
+        win.after(200, init_user_id)
+
+
+
+    tk.Button(reg_left, text="Register", bg="#4a90d9", fg="white",
+              command=register_user, width=15).grid(row=4, column=0, columnspan=2, pady=10)
+    sl_user_map = load_name_map("SELECT User_id, Name FROM user")
+    u_user_map  = load_name_map("SELECT User_id, Name FROM user")
+
+
+    load_reg_users()
+    win.after(200, init_user_id)
+    
+    # ---------- VIEW & SEARCH ARTICLES ----------
+    art_frame = ttk.Frame(nb)
+    nb.add(art_frame, text="View Articles")
+
+    art_top = ttk.Frame(art_frame)
+    art_top.pack(fill="x", padx=10, pady=8)
+
+    
+
+    art_tree = create_tree(art_frame, ("Article_id", "Title", "Content", "Published_Date", "Author_id"))
+
+    def load_view_articles(filter_text=""):
+        art_tree.delete(*art_tree.get_children())
+        if filter_text:
+            cursor.execute(
+                "SELECT Article_id, Title, Content, Published_Date, Author_id FROM `article` "
+                "WHERE Title LIKE %s OR Content LIKE %s",
+                ('%' + filter_text + '%', '%' + filter_text + '%')
+            )
+        else:
+            cursor.execute("SELECT Article_id, Title, Content, Published_Date, Author_id FROM `article`")
+        for r in cursor.fetchall():
+            art_tree.insert("", tk.END, values=r)
+
+    def on_art_search(*args):
+        load_view_articles(art_search_var.get())
+
+    
+    load_view_articles()
+
+    # ---------- COMMENT ----------
+    com_frame = ttk.Frame(nb)
+    nb.add(com_frame, text="Comment on Articles")
+
+    com_left = ttk.Frame(com_frame)
+    com_left.pack(side="left", fill="y", padx=20, pady=20)
+
+    u_user_map    = load_map("SELECT User_id, Name FROM `user`")
+    u_article_map = load_map("SELECT Article_id, Title FROM `article`")
+    u_user_var    = tk.StringVar()
+    u_art_var     = tk.StringVar()
+
+    u_com_id = tk.Entry(com_left, state="readonly")
+    def init_comment_id():
+        u_com_id.config(state="normal")
+        u_com_id.delete(0, tk.END)
+        u_com_id.insert(0, generate_id("comment", "Comment_id", "C"))
+        u_com_id.config(state="readonly")
+    u_com_text = tk.Entry(com_left, width=30)
+    u_com_date = tk.Entry(com_left)
+    u_com_date.insert(0, str(datetime.date.today()))
+    u_user_cb  = ttk.Combobox(com_left, textvariable=u_user_var,  values=list(u_user_map.keys()),    width=25)
+    u_art_cb   = ttk.Combobox(com_left, textvariable=u_art_var,   values=list(u_article_map.keys()), width=25)
+
+    tk.Label(com_left, text="Comment ID").grid(row=0, column=0, sticky="w", pady=3)
+    tk.Label(com_left, text="Your Name").grid(row=1, column=0, sticky="w", pady=3)
+    tk.Label(com_left, text="Article").grid(row=2, column=0, sticky="w", pady=3)
+    tk.Label(com_left, text="Comment").grid(row=3, column=0, sticky="w", pady=3)
+    tk.Label(com_left, text="Date").grid(row=4, column=0, sticky="w", pady=3)
+    u_com_id.grid(row=0, column=1, pady=3)
+    u_user_cb.grid(row=1, column=1, pady=3)
+    u_art_cb.grid(row=2, column=1, pady=3)
+    u_com_text.grid(row=3, column=1, pady=3)
+    u_com_date.grid(row=4, column=1, pady=3)
+
+    com_right = ttk.Frame(com_frame)
+    com_right.pack(side="right", fill="both", expand=True, padx=10, pady=10)
+    u_com_tree = create_tree(com_right, ("Comment_id", "User_Name", "Article_Title", "Comment", "Comment_date"))
+
+    def load_u_comments():
+        u_com_tree.delete(*u_com_tree.get_children())
+        cursor.execute("""
+            SELECT c.Comment_id, u.Name, a.Title, c.Content, c.Comment_date
+            FROM `comment` c
+            JOIN `user` u ON c.User_id = u.User_id
+            JOIN `article` a ON c.Article_id = a.Article_id
+        """)
+        for r in cursor.fetchall():
+            u_com_tree.insert("", tk.END, values=r)
+            
+    def post_comment():
+        if not u_com_id.get() or not u_user_var.get() or not u_art_var.get():
+            messagebox.showwarning("Input Error", "Please fill Comment ID, User and Article.")
+            return
+        execute(
+            "INSERT INTO `comment`(Comment_id, Article_id, User_id, Content, Comment_date) VALUES (%s,%s,%s,%s,%s)",
+            (u_com_id.get(), u_article_map.get(u_art_var.get()),
+             u_user_map.get(u_user_var.get()), u_com_text.get(), u_com_date.get())
+        )
+        messagebox.showinfo("Success", "Comment posted!")
+        u_com_text.delete(0, tk.END)
+        u_com_date.delete(0, tk.END)
+        u_com_date.insert(0, str(datetime.date.today()))
+        init_comment_id()   # 🔥 generate new ID
+        load_u_comments()
+        load_u_comments()
+        win.after(200, init_comment_id)
+
+    tk.Button(com_left, text="Post Comment", bg="#4a90d9", fg="white",
+              command=post_comment, width=15).grid(row=5, column=0, columnspan=2, pady=10)
+
+    load_u_comments()
+    win.after(200, init_comment_id)
+    # ---------- VIEW TAGS ----------
+    tag_frame = ttk.Frame(nb)
+    nb.add(tag_frame, text="Tags")
+
+    tag_tree = create_tree(tag_frame, ("Tag_id", "Name"))
+
+    def load_tags_user():
+        tag_tree.delete(*tag_tree.get_children())
+        cursor.execute("SELECT * FROM tag")
+        for r in cursor.fetchall():
+            tag_tree.insert("", tk.END, values=r)
+
+    load_tags_user()
+    # ---------- VIEW CATEGORIES ----------
+    cat_frame = ttk.Frame(nb)
+    nb.add(cat_frame, text="Categories")
+
+    cat_tree = create_tree(cat_frame, ("Category_id", "Name"))
+
+    def load_categories_user():
+        cat_tree.delete(*cat_tree.get_children())
+        cursor.execute("SELECT Category_id, Name FROM category")
+        for r in cursor.fetchall():
+            cat_tree.insert("", tk.END, values=r)
+
+    load_categories_user()
+
+
+
+ 
+
+
+    # ================= GENERATE LOG ID =================
+    def generate_log_id():
+        cursor.execute("SELECT MAX(Log_id) FROM search_log")
+        result = cursor.fetchone()[0]
+
+        if not result:  # table empty or None
+            return "L001"
+
+    # Split letters and digits
+        prefix = ''.join([c for c in result if not c.isdigit()])  # e.g., 'L'
+        number = ''.join([c for c in result if c.isdigit()])      # e.g., '010'
+
+        new_number = str(int(number) + 1).zfill(len(number))      # increment
+        return prefix + new_number
+
+
+
+# --------- Search Log Frame ---------
+    sl_frame = ttk.Frame(nb)
+    nb.add(sl_frame, text="Search Log")
+
+    sl_left = ttk.Frame(sl_frame)
+    sl_left.pack(side="left", fill="y", padx=20, pady=20)
+
+    sl_user_map = load_map("SELECT User_id, Name FROM `user`")
+    sl_user_var = tk.StringVar()
+    sl_user_cb  = ttk.Combobox(sl_left, textvariable=sl_user_var, values=list(sl_user_map.keys()), width=25)
+    sl_user_cb.current(0)
+
+    # Log ID (read-only)
+    sl_log_id = tk.Entry(sl_left, state="readonly", width=10)
+    def init_log_id():
+        sl_log_id.config(state="normal")
+        sl_log_id.delete(0, tk.END)
+        sl_log_id.insert(0, generate_log_id())
+        sl_log_id.config(state="readonly")
+    win.after(100, init_log_id)
+
+    # Search Query and Date
+    sl_query = tk.Entry(sl_left, width=30)
+    sl_date  = tk.Entry(sl_left)
+    sl_date.insert(0, str(datetime.date.today()))
+    sl_query.delete(0, tk.END)
+    init_log_id()
+
+    # Labels
+    tk.Label(sl_left, text="Log ID").grid(row=0, column=0, sticky="w", pady=3)
+    tk.Label(sl_left, text="Search Query").grid(row=1, column=0, sticky="w", pady=3)
+    tk.Label(sl_left, text="Your Name").grid(row=2, column=0, sticky="w", pady=3)
+    tk.Label(sl_left, text="Date").grid(row=3, column=0, sticky="w", pady=3)
+
+    # Place widgets
+    sl_log_id.grid(row=0, column=1, pady=3)
+    sl_query.grid(row=1, column=1, pady=3)
+    sl_user_cb.grid(row=2, column=1, pady=3)
+    sl_date.grid(row=3, column=1, pady=3)
+
+    # Results on the right
+    sl_right = ttk.Frame(sl_frame)
+    sl_right.pack(side="right", fill="both", expand=True, padx=10, pady=10)
+
+    tk.Label(sl_right, text="Search Results",
+             font=("Arial", 11, "bold")).pack(anchor="w", padx=5, pady=(5, 2))
+    sl_results_tree = create_tree(sl_right, ("Article_Title", "Content"))
+
+    # --------- Functions ---------
+    def do_search():
+        q = sl_query.get().strip()
+
+        sl_log_id.config(state="normal")
+        log_id = sl_log_id.get()
+        sl_log_id.config(state="readonly")
+
+        if not q:
+            messagebox.showwarning("Input Error", "Please fill the Search Query.")
+            return
+
+        u = sl_user_map.get(sl_user_var.get())
+
+        # Save to search_log
+        execute(
+            "INSERT INTO `search_log`(Log_id, Query_Text, Search_date, User_id) VALUES (%s,%s,%s,%s)",
+            (log_id, q, sl_date.get(), u)
+        )
+
+        # Show matching articles in results tree
+        sl_results_tree.delete(*sl_results_tree.get_children())
+        cursor.execute(
+            "SELECT Title, Content FROM `article` WHERE Title LIKE %s OR Content LIKE %s",
+            ('%' + q + '%', '%' + q + '%')
+        )
+        results = cursor.fetchall()
+
+        if results:
+            for r in results:
+                sl_results_tree.insert("", tk.END, values=r)
+        else:
+            messagebox.showinfo("No Results", "No articles found for your search.")
+
+        # Generate new Log ID
+        sl_query.delete(0, tk.END)
+        sl_log_id.config(state="normal")
+        sl_log_id.delete(0, tk.END)
+        sl_log_id.insert(0, generate_log_id())
+        sl_log_id.config(state="readonly")
+
+    def delete_sl():
+        sl_log_id.config(state="normal")
+        log_id = sl_log_id.get()
+        sl_log_id.config(state="readonly")
+
+        if not log_id:
+            messagebox.showwarning("Input Error", "No Log ID to delete.")
+            return
+
+        u = sl_user_map.get(sl_user_var.get())
+        execute(
+            "DELETE FROM `search_log` WHERE Log_id=%s AND User_id=%s",
+            (log_id, u)
+        )
+        messagebox.showinfo("Deleted", "Your search log has been deleted.")
+        sl_results_tree.delete(*sl_results_tree.get_children())
+        sl_query.delete(0, tk.END)
+        sl_log_id.config(state="normal")
+        sl_log_id.delete(0, tk.END)
+        sl_log_id.insert(0, generate_log_id())
+        sl_log_id.config(state="readonly")
+
+    # --------- Buttons ---------
+    tk.Button(sl_left, text="Search & Save", bg="#4a90d9", fg="white",
+              command=do_search, width=15).grid(row=4, column=0, pady=5)
+    tk.Button(sl_left, text="Delete",        bg="#c0392b", fg="white",
+              command=delete_sl,  width=15).grid(row=4, column=1, pady=5)
+
+
+
+
+
+# =========================================================
+#  AUTHOR PORTAL
+# =========================================================
+def author_portal():
+    win = tk.Tk()
+    win.title("UOM News Portal — Author Portal")
+    win.geometry("1600x900")
+    
+    top = tk.Frame(win, bg="#27ae60")
+    top.pack(fill="x")
+    tk.Label(top, text="✍ Author Portal", font=("Arial", 14, "bold"),
+             bg="#27ae60", fg="white").pack(side="left", padx=15, pady=8)
+    tk.Button(top, text="⬅ Back to Home", bg="#1e8449", fg="white",
+              command=lambda: [win.destroy(), home_screen()]).pack(side="right", padx=10, pady=6)
+
+    nb = ttk.Notebook(win)
+    nb.pack(fill="both", expand=True)
+
+    # ---------- ADD ARTICLE ----------
+    add_frame = ttk.Frame(nb)
+    nb.add(add_frame, text="Add Article")
+
+    a_left = ttk.Frame(add_frame)
+    a_left.pack(side="left", fill="y", padx=20, pady=20)
+
+    author_map = load_map("SELECT Author_Id, Name FROM `author`")
+    author_var = tk.StringVar()
+    author_cb  = ttk.Combobox(a_left, textvariable=author_var, values=list(author_map.keys()), width=25)
+
+  
+    a_id = tk.Entry(a_left, state="readonly")  # keep readonly
+    def init_article_id():
+        a_id.config(state="normal")
+        a_id.delete(0, tk.END)
+        a_id.insert(0, generate_id("article", "Article_id", "A"))  # <-- CHANGE HERE
+        a_id.config(state="readonly")
+
+    a_title   = tk.Entry(a_left, width=30)
+    a_content = tk.Entry(a_left, width=30)
+    a_date    = tk.Entry(a_left)
+    a_date.insert(0, str(datetime.date.today()))
+
+    tk.Label(a_left, text="Article ID").grid(row=0, column=0, sticky="w", pady=3)
+    tk.Label(a_left, text="Title").grid(row=1, column=0, sticky="w", pady=3)
+    tk.Label(a_left, text="Content").grid(row=2, column=0, sticky="w", pady=3)
+    tk.Label(a_left, text="Published Date").grid(row=3, column=0, sticky="w", pady=3)
+    tk.Label(a_left, text="Author").grid(row=4, column=0, sticky="w", pady=3)
+    a_id.grid(row=0, column=1, pady=3)
+    a_title.grid(row=1, column=1, pady=3)
+    a_content.grid(row=2, column=1, pady=3)
+    a_date.grid(row=3, column=1, pady=3)
+    author_cb.grid(row=4, column=1, pady=3)
+
+    a_right = ttk.Frame(add_frame)
+    a_right.pack(side="right", fill="both", expand=True, padx=10, pady=10)
+    a_tree = create_tree(a_right, ("Article_id", "Title", "Content", "Published_Date", "Author_id"))
+
+    def load_author_articles():
+        a_tree.delete(*a_tree.get_children())
+        cursor.execute("SELECT Article_id, Title, Content, Published_Date, Author_id FROM `article`")
+        for r in cursor.fetchall():
+            a_tree.insert("", tk.END, values=r)
+
+    def add_article():
+        if not a_id.get() or not a_title.get():
+            messagebox.showwarning("Input Error", "Please fill Article ID and Title.")
+            return
+        au = author_map.get(author_var.get())
+        execute(
+        "INSERT INTO `article`(Article_id, Title, Content, Published_Date, Author_id) VALUES (%s,%s,%s,%s,%s)",
+        (a_id.get(), a_title.get(), a_content.get(), a_date.get(), au)
+        )
+
+        messagebox.showinfo("Success", "Article added successfully!")
+        load_author_articles()
+        win.after(200, init_article_id)
+
+    tk.Button(a_left, text="Add Article", bg="#27ae60", fg="white",
+              command=add_article, width=15).grid(row=5, column=0, columnspan=2, pady=10)
+
+    load_author_articles()
+    win.after(200, init_article_id)
+
+    # ---------- UPLOAD MEDIA ----------
+    med_frame = ttk.Frame(nb)
+    nb.add(med_frame, text="Upload Media")
+
+    med_left = ttk.Frame(med_frame)
+    med_left.pack(side="left", fill="y", padx=20, pady=20)
+
+    med_art_map = load_map("SELECT Article_id, Title FROM `article`")
+    med_art_var = tk.StringVar()
+    med_art_cb  = ttk.Combobox(med_left, textvariable=med_art_var, values=list(med_art_map.keys()), width=25)
+
+    med_id = tk.Entry(med_left, state="readonly")  # readonly field
+
+    def init_media_id():
+        med_id.config(state="normal")
+        med_id.delete(0, tk.END)
+        med_id.insert(0, generate_id("media", "Media_id", "M"))  # <-- same pattern
+        med_id.config(state="readonly")
+
+    med_type = tk.Entry(med_left)
+    med_url  = tk.Entry(med_left, width=30)
+
+    tk.Label(med_left, text="Media ID").grid(row=0, column=0, sticky="w", pady=3)
+    tk.Label(med_left, text="Type (Image/Video)").grid(row=1, column=0, sticky="w", pady=3)
+    tk.Label(med_left, text="URL").grid(row=2, column=0, sticky="w", pady=3)
+    tk.Label(med_left, text="Article").grid(row=3, column=0, sticky="w", pady=3)
+    med_id.grid(row=0, column=1, pady=3)
+    med_type.grid(row=1, column=1, pady=3)
+    med_url.grid(row=2, column=1, pady=3)
+    med_art_cb.grid(row=3, column=1, pady=3)
+
+    med_right = ttk.Frame(med_frame)
+    med_right.pack(side="right", fill="both", expand=True, padx=10, pady=10)
+    med_tree = create_tree(med_right, ("Media_id", "Type", "URL", "Article_id"))
+
+    def load_author_media():
+        med_tree.delete(*med_tree.get_children())
+        cursor.execute("SELECT Media_id, Type, URL, Article_id FROM `media`")
+        for r in cursor.fetchall():
+            med_tree.insert("", tk.END, values=r)
+
+    def upload_media():
+        a = med_art_map.get(med_art_var.get())
+        if not med_id.get() or not a:
+            messagebox.showwarning("Input Error", "Please fill Media ID and select an Article.")
+            return
+        execute("INSERT INTO `media`(Media_id, Type, URL, Article_id) VALUES (%s,%s,%s,%s)",
+                (med_id.get(), med_type.get(), med_url.get(), a))
+        messagebox.showinfo("Success", "Media uploaded successfully!")
+        load_author_media()
+        init_media_id()
+        med_type.delete(0, tk.END)
+        med_url.delete(0, tk.END)
+
+    tk.Button(med_left, text="Upload Media", bg="#27ae60", fg="white",
+              command=upload_media, width=15).grid(row=4, column=0, columnspan=2, pady=10)
+
+    win.after(200, init_media_id)
+    load_author_media()
+    
+
+
+    # ---------- VIEW COMMENTS ----------
+    vc_frame = ttk.Frame(nb)
+    nb.add(vc_frame, text="View Comments")
+
+    vc_top = ttk.Frame(vc_frame)
+    vc_top.pack(fill="x", padx=10, pady=8)
+    tk.Label(vc_top, text="Filter by Article ID:").pack(side="left")
+    vc_filter = tk.Entry(vc_top, width=20)
+    vc_filter.pack(side="left", padx=5)
+
+    vc_tree = create_tree(vc_frame, ("Comment_id", "User_Name", "Article_Title", "Comment", "Comment_date"))
+
+    def load_vc(filter_text=""):
+        vc_tree.delete(*vc_tree.get_children())
+        if filter_text:
+            cursor.execute("""
+                SELECT c.Comment_id, u.Name, a.Title, c.Content, c.Comment_date
+                FROM `comment` c
+                JOIN `user` u ON c.User_id = u.User_id
+                JOIN `article` a ON c.Article_id = a.Article_id
+                WHERE a.Title LIKE %s
+            """, ('%' + filter_text + '%',))
+        else:
+            cursor.execute("""
+                SELECT c.Comment_id, u.Name, a.Title, c.Content, c.Comment_date
+                FROM `comment` c
+                JOIN `user` u ON c.User_id = u.User_id
+                JOIN `article` a ON c.Article_id = a.Article_id
+            """)
+        for r in cursor.fetchall():
+            vc_tree.insert("", tk.END, values=r)
+            
+    def on_vc_filter(*args):
+        load_vc(vc_filter.get())
+
+    vc_filter.bind("<KeyRelease>", lambda e: on_vc_filter())
+    load_vc()
+    
+    # ================= VIEW COUNT =================
+    avc_frame = ttk.Frame(nb)
+    nb.add(avc_frame, text="View Count")
+
+    avc_tree = create_tree(avc_frame, ("Article_id", "Views"))
+
+    def load_view_count():
+        avc_tree.delete(*avc_tree.get_children())
+        cursor.execute("""
+            SELECT Article_id, COUNT(*) 
+            FROM article_view 
+            GROUP BY Article_id
+        """)
+        for r in cursor.fetchall():
+            avc_tree.insert("", tk.END, values=r)
+
+    tk.Button(avc_frame, text="Refresh", command=load_view_count).pack(pady=10)
+
+    load_view_count()
+
+# ================= VIEWS BY AGE CATEGORY =================
+    age_frame = ttk.Frame(nb)
+    nb.add(age_frame, text="Views by Age")
+
+    age_top = ttk.Frame(age_frame)
+    age_top.pack(fill="x", padx=10, pady=8)
+    tk.Label(age_top, text="Article Views Grouped by User Age Category",
+             font=("Arial", 11, "bold")).pack(side="left")
+
+    age_tree = create_tree(age_frame, ("Age_Category", "Article_Name", "Number_of_Views"))
+
+    def load_age_views_author():
+        age_tree.delete(*age_tree.get_children())
+        cursor.execute("""
+            SELECT 
+                CASE 
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 18 AND 25 THEN '18-25'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 26 AND 35 THEN '26-35'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 36 AND 45 THEN '36-45'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 46 AND 55 THEN '46-55'
+                    ELSE '55+'
+                END AS Age_Category,
+                a.Title AS Article_Name,
+                COUNT(*) AS Number_of_Views
+            FROM `article_view` av
+            JOIN `user` u ON av.User_id = u.User_id
+            JOIN `article` a ON av.Article_id = a.Article_id
+            GROUP BY Age_Category, a.Title
+            ORDER BY Age_Category, Number_of_Views DESC
+        """)
+        rows = cursor.fetchall()
+        last_age = None
+        for r in rows:
+            if r[0] != last_age:
+                if last_age is not None:
+                    age_tree.insert("", tk.END, values=("", "", ""))
+                last_age = r[0]
+                age_tree.insert("", tk.END, values=(r[0], r[1], r[2]))
+            else:
+                age_tree.insert("", tk.END, values=("", r[1], r[2]))
+
+    tk.Button(age_top, text="Refresh", command=load_age_views_author).pack(side="right", padx=10)
+    load_age_views_author()
+    
+    win.mainloop()
+
+
+# =========================================================
+#  ADMIN PORTAL  (original full GUI — unchanged)
+# =========================================================
+def admin_portal():
+    root = tk.Tk()
+    root.title("UOM News Portal — Admin Portal")
+    root.geometry("1600x900")
+
+    top = tk.Frame(root, bg="#c0392b")
+    top.pack(fill="x")
+    tk.Label(top, text="🔧 Admin Portal", font=("Arial", 14, "bold"),
+             bg="#c0392b", fg="white").pack(side="left", padx=15, pady=8)
+    tk.Button(top, text="⬅ Back to Home", bg="#922b21", fg="white",
+              command=lambda: [root.destroy(), home_screen()]).pack(side="right", padx=10, pady=6)
+
+    notebook = ttk.Notebook(root)
+    notebook.pack(fill='both', expand=True)
+
+# ================= USERS =================
+    user_frame = ttk.Frame(notebook)
+    notebook.add(user_frame, text="Users")
+
+    u_left = ttk.Frame(user_frame)
+    u_left.pack(side="left", fill="y")
+    u_right = ttk.Frame(user_frame)
+    u_right.pack(side="right", fill="both", expand=True)
+
+    uid   = tk.Entry(u_left)
+    uname  = tk.Entry(u_left)
+    uemail = tk.Entry(u_left)
+    udob   = tk.Entry(u_left)
+
+    tk.Label(u_left, text="ID").grid(row=0, column=0)
+    tk.Label(u_left, text="Name").grid(row=1, column=0)
+    tk.Label(u_left, text="Email").grid(row=2, column=0)
+    tk.Label(u_left, text="DOB (YYYY-MM-DD)").grid(row=3, column=0)
+
+    uid.grid(row=0, column=1)
+    uname.grid(row=1, column=1)
+    uemail.grid(row=2, column=1)
+    udob.grid(row=3, column=1)
+
+    user_tree = create_tree(u_right, ("User_Id", "Name", "Email", "DOB"))
+
+    def load_users():
+        user_tree.delete(*user_tree.get_children())
+        cursor.execute("SELECT User_id, Name, Email, DOB FROM `user`")
+        for r in cursor.fetchall():
+            user_tree.insert("", tk.END, values=r)
+
+    def add_user():
+        if not uid.get(): return
+        execute("INSERT INTO `user`(User_id, Name, Email, DOB) VALUES (%s,%s,%s,%s)",
+                (uid.get(), uname.get(), uemail.get(), udob.get()))
+        load_users()
+
+    def update_user():
+        execute("UPDATE `user` SET Name=%s, Email=%s, DOB=%s WHERE User_id=%s",
+                (uname.get(), uemail.get(), udob.get(), uid.get()))
+        load_users()
+
+    def delete_user():
+        execute("DELETE FROM `user` WHERE User_id=%s", (uid.get(),))
+        load_users()
+
+    def search_user():
+        user_tree.delete(*user_tree.get_children())
+        cursor.execute("SELECT User_id, Name, Email, DOB FROM `user` WHERE CONCAT(User_id, Name, Email) LIKE %s",
+                       ('%' + uid.get() + '%',))
+        for r in cursor.fetchall():
+            user_tree.insert("", tk.END, values=r)
+
+    tk.Button(u_left, text="Add",    command=add_user).grid(row=4, column=0)
+    tk.Button(u_left, text="Update", command=update_user).grid(row=4, column=1)
+    tk.Button(u_left, text="Delete", command=delete_user).grid(row=5, column=0)
+    tk.Button(u_left, text="Search", command=search_user).grid(row=5, column=1)
+
+    load_users()
+
+    # ================= CATEGORY =================
+    cat_frame = ttk.Frame(notebook)
+    notebook.add(cat_frame, text="Category")
+
+    c_left = ttk.Frame(cat_frame)
+    c_left.pack(side="left", fill="y")
+    c_right = ttk.Frame(cat_frame)
+    c_right.pack(side="right", fill="both", expand=True)
+
+# Only one readonly entry for Category ID
+    cid = tk.Entry(c_left, state="readonly")  # readonly field
+    cname = tk.Entry(c_left)
+
+    def init_category_id():
+        cid.config(state="normal")
+        cid.delete(0, tk.END)
+        cid.insert(0, generate_id("category", "Category_Id", "C"))  # generate ID
+        cid.config(state="readonly")
+
+# Labels and grid
+    tk.Label(c_left, text="ID").grid(row=0, column=0)
+    tk.Label(c_left, text="Name").grid(row=1, column=0)
+    cid.grid(row=0, column=1)
+    cname.grid(row=1, column=1)
+
+# Treeview
+    cat_tree = create_tree(c_right, ("Category_Id", "Name"))
+
+# Load categories
+    def load_categories():
+        cat_tree.delete(*cat_tree.get_children())
+        cursor.execute("SELECT * FROM category")
+        for r in cursor.fetchall():
+            cat_tree.insert("", tk.END, values=r)
+
+# Add category
+    def add_category():
+        execute("INSERT INTO category VALUES (%s,%s,%s)", (cid.get(), cname.get(), ""))
+        cname.delete(0, tk.END)      # clear name field
+        init_category_id()           # refresh ID for next category
+        load_categories()
+
+    tk.Button(c_left, text="Add", command=add_category).grid(row=2, column=0)
+
+# Initialize ID on window load
+    root.after(200, init_category_id)
+    load_categories()
+
+    # ================= TAG =================
+    tag_frame = ttk.Frame(notebook)
+    notebook.add(tag_frame, text="Tag")
+
+    t_left = ttk.Frame(tag_frame)
+    t_left.pack(side="left", fill="y")
+    t_right = ttk.Frame(tag_frame)
+    t_right.pack(side="right", fill="both", expand=True)
+
+# Entries
+    tid = tk.Entry(t_left, state="readonly")  # make readonly
+    tname = tk.Entry(t_left)
+
+    tk.Label(t_left, text="ID").grid(row=0, column=0)
+    tk.Label(t_left, text="Name").grid(row=1, column=0)
+    tid.grid(row=0, column=1)
+    tname.grid(row=1, column=1)
+
+# Treeview
+    tag_tree = create_tree(t_right, ("Tag_Id", "Name"))
+
+# Functions
+    def init_tag_id():
+        tid.config(state="normal")
+        tid.delete(0, tk.END)
+        tid.insert(0, generate_id("tag", "Tag_Id", "T"))  # generate next Tag ID
+        tid.config(state="readonly")
+
+    def load_tags():
+        tag_tree.delete(*tag_tree.get_children())
+        cursor.execute("SELECT * FROM `tag`")
+        for r in cursor.fetchall():
+            tag_tree.insert("", tk.END, values=r)
+
+    def add_tag():
+        if not tname.get().strip():
+            messagebox.showwarning("Input Error", "Please enter a Tag Name.")
+            return
+        execute("INSERT INTO `tag` VALUES (%s,%s)", (tid.get(), tname.get()))
+        load_tags()
+        tname.delete(0, tk.END)
+        root.after(100, init_tag_id)  # generate next ID
+
+# Button
+    tk.Button(t_left, text="Add", command=add_tag).grid(row=2, column=0)
+
+# Initialize
+    load_tags()
+    root.after(100, init_tag_id)  # generate first ID
+
+
+    # ================= ARTICLES =================
+    art_frame = ttk.Frame(notebook)
+    notebook.add(art_frame, text="Articles")
+
+    a_left = ttk.Frame(art_frame)
+    a_left.pack(side="left",fill="y")
+    a_right = ttk.Frame(art_frame)
+    a_right.pack(side="right",fill="both",expand=True)
+
+    aid = tk.Entry(a_left)
+    atitle = tk.Entry(a_left)
+    acontent = tk.Entry(a_left)
+
+    tk.Label(a_left,text="ID").grid(row=0,column=0)
+    tk.Label(a_left,text="Title").grid(row=1,column=0)
+    tk.Label(a_left,text="Content").grid(row=2,column=0)
+    aid.grid(row=0,column=1)
+    atitle.grid(row=1,column=1)
+    acontent.grid(row=2,column=1)
+
+    article_tree = create_tree(a_right,("Article_Id","Title","Content"))
+
+    def load_articles():
+        article_tree.delete(*article_tree.get_children())
+        cursor.execute("SELECT Article_id, Title, Content FROM `article`")
+        for r in cursor.fetchall():
+            article_tree.insert("",tk.END,values=r)
+
+    def add_article():
+        execute("INSERT INTO `article`(Article_id,Title,Content,Published_Date,Author_id) VALUES (%s,%s,%s,%s,%s)",
+                (aid.get(),atitle.get(),acontent.get(),str(datetime.date.today()),"Au001"))
+        load_articles()
+
+    def update_article():
+        execute("UPDATE `article` SET Title=%s, Content=%s WHERE Article_id=%s",
+                (atitle.get(),acontent.get(),aid.get()))
+        load_articles()
+
+    def delete_article():
+        execute("DELETE FROM `article` WHERE Article_id=%s",(aid.get(),))
+        load_articles()
+
+    tk.Button(a_left,text="Add",command=add_article).grid(row=3,column=0)
+    tk.Button(a_left,text="Update",command=update_article).grid(row=3,column=1)
+    tk.Button(a_left,text="Delete",command=delete_article).grid(row=4,column=0)
+    load_articles()
+
+    # ================= COMMENTS =================
+    com_frame = ttk.Frame(notebook)
+    notebook.add(com_frame, text="Comments")
+
+    com_left = ttk.Frame(com_frame)
+    com_left.pack(side="left", fill="y")
+    com_right = ttk.Frame(com_frame)
+    com_right.pack(side="right", fill="both", expand=True)
+
+    user_map    = load_map("SELECT User_id, Name FROM `user`")
+    article_map = load_map("SELECT Article_id, Title FROM `article`")
+    user_var    = tk.StringVar()
+    article_var = tk.StringVar()
+
+    user_cb    = ttk.Combobox(com_left, textvariable=user_var,    values=list(user_map.keys()))
+    article_cb = ttk.Combobox(com_left, textvariable=article_var, values=list(article_map.keys()))
+
+    comment_text = tk.Entry(com_left)
+    adm_cid      = tk.Entry(com_left)
+    cdate        = tk.Entry(com_left)
+    cdate.insert(0, str(datetime.date.today()))
+
+    tk.Label(com_left, text="Comment ID").grid(row=0, column=0)
+    tk.Label(com_left, text="User").grid(row=1, column=0)
+    tk.Label(com_left, text="Article").grid(row=2, column=0)
+    tk.Label(com_left, text="Content").grid(row=3, column=0)
+    tk.Label(com_left, text="Date (YYYY-MM-DD)").grid(row=4, column=0)
+    adm_cid.grid(row=0, column=1)
+    user_cb.grid(row=1, column=1)
+    article_cb.grid(row=2, column=1)
+    comment_text.grid(row=3, column=1)
+    cdate.grid(row=4, column=1)
+
+    com_tree = create_tree(com_right, ("Comment_id", "User_id", "User_Name", "Article_id", "Article_Title", "Content", "Comment_date"))
+
+    def load_comments():
+        com_tree.delete(*com_tree.get_children())
+        cursor.execute("""
+            SELECT c.Comment_id, c.User_id, u.Name, c.Article_id, a.Title, c.Content, c.Comment_date
+            FROM `comment` c
+            JOIN `user` u ON c.User_id = u.User_id
+            JOIN `article` a ON c.Article_id = a.Article_id
+        """)
+        for r in cursor.fetchall():
+            com_tree.insert("", tk.END, values=r)
+
+    def add_comment():
+        execute(
+            "INSERT INTO `comment`(Comment_id, Article_id, User_id, Content, Comment_date) VALUES (%s,%s,%s,%s,%s)",
+            (adm_cid.get(), article_map.get(article_var.get()), user_map.get(user_var.get()), comment_text.get(), cdate.get())
+        )
+        load_comments()
+
+    def update_comment():
+        execute(
+            "UPDATE `comment` SET User_id=%s, Article_id=%s, Content=%s, Comment_date=%s WHERE Comment_id=%s",
+            (user_map.get(user_var.get()), article_map.get(article_var.get()), comment_text.get(), cdate.get(), adm_cid.get())
+        )
+        load_comments()
+
+    def delete_comment():
+        execute("DELETE FROM `comment` WHERE Comment_id=%s", (adm_cid.get(),))
+        load_comments()
+
+    def search_comment():
+        com_tree.delete(*com_tree.get_children())
+        cursor.execute(
+            "SELECT Comment_id, User_id, Article_id, Content, Comment_date FROM `comment` WHERE Content LIKE %s",
+            ('%' + comment_text.get() + '%',)
+        )
+        for r in cursor.fetchall():
+            com_tree.insert("", tk.END, values=r)
+
+    tk.Button(com_left, text="Add",    command=add_comment).grid(row=5, column=0)
+    tk.Button(com_left, text="Update", command=update_comment).grid(row=5, column=1)
+    tk.Button(com_left, text="Delete", command=delete_comment).grid(row=6, column=0)
+    tk.Button(com_left, text="Search", command=search_comment).grid(row=6, column=1)
+    load_comments()
+
+    # ================= MEDIA =================
+    media_frame = ttk.Frame(notebook)
+    notebook.add(media_frame, text="Media")
+
+    m_left = ttk.Frame(media_frame)
+    m_left.pack(side="left", fill="y")
+    m_right = ttk.Frame(media_frame)
+    m_right.pack(side="right", fill="both", expand=True)
+
+    media_map = load_map("SELECT Article_id, Title FROM `article`")
+    media_var = tk.StringVar()
+    path_var  = tk.StringVar()
+    mid       = tk.Entry(m_left)
+    media_cb  = ttk.Combobox(m_left, textvariable=media_var, values=list(media_map.keys()))
+
+    tk.Label(m_left, text="Media ID").grid(row=0, column=0)
+    tk.Label(m_left, text="Article").grid(row=1, column=0)
+    tk.Label(m_left, text="File Path").grid(row=2, column=0)
+    mid.grid(row=0, column=1)
+    media_cb.grid(row=1, column=1)
+
+    def browse():
+        path_var.set(filedialog.askopenfilename())
+
+    tk.Button(m_left, text="Browse", command=browse).grid(row=2, column=1)
+    tk.Entry(m_left, textvariable=path_var).grid(row=3, column=1)
+
+    media_tree = create_tree(m_right, ("Media_Id", "Article_Id", "Path"))
+
+    def load_media():
+        media_tree.delete(*media_tree.get_children())
+        cursor.execute("SELECT Media_id, Article_id, URL FROM `media`")
+        for r in cursor.fetchall():
+            media_tree.insert("", tk.END, values=r)
+
+    def add_media():
+        execute("INSERT INTO `media`(Media_id, Type, URL, Article_id) VALUES (%s,%s,%s,%s)",
+                (mid.get(), "Image", path_var.get(), media_map.get(media_var.get())))
+        load_media()
+
+    def update_media():
+        execute("UPDATE `media` SET Article_id=%s, URL=%s WHERE Media_id=%s",
+                (media_map.get(media_var.get()), path_var.get(), mid.get()))
+        load_media()
+
+    def delete_media():
+        execute("DELETE FROM `media` WHERE Media_id=%s", (mid.get(),))
+        load_media()
+
+    def search_media():
+        media_tree.delete(*media_tree.get_children())
+        cursor.execute("SELECT Media_id, Article_id, URL FROM `media` WHERE URL LIKE %s",
+                       ('%' + path_var.get() + '%',))
+        for r in cursor.fetchall():
+            media_tree.insert("", tk.END, values=r)
+
+    tk.Button(m_left, text="Add",    command=add_media).grid(row=4, column=0)
+    tk.Button(m_left, text="Update", command=update_media).grid(row=4, column=1)
+    tk.Button(m_left, text="Delete", command=delete_media).grid(row=5, column=0)
+    tk.Button(m_left, text="Search", command=search_media).grid(row=5, column=1)
+    load_media()
+
+# ================= SEARCH LOG =================
+    search_frame = ttk.Frame(notebook)
+    notebook.add(search_frame, text="Search")
+
+    s_top = ttk.Frame(search_frame)
+    s_top.pack(fill="x", padx=10, pady=8)
+
+    tk.Label(s_top, text="Filter by Query:").pack(side="left")
+    s_filter = tk.Entry(s_top, width=30)
+    s_filter.pack(side="left", padx=5)
+
+    s_right = ttk.Frame(search_frame)
+    s_right.pack(fill="both", expand=True)
+
+    search_tree = create_tree(s_right, ("Log_id", "Query_Text", "Search_date", "User_id"))
+
+    def load_search_log():
+        search_tree.delete(*search_tree.get_children())
+        cursor.execute("SELECT Log_id, Query_Text, Search_date, User_id FROM `search_log`")
+        for r in cursor.fetchall():
+            search_tree.insert("", tk.END, values=r)
+
+    def filter_search(event):
+        search_tree.delete(*search_tree.get_children())
+        cursor.execute(
+            "SELECT Log_id, Query_Text, Search_date, User_id FROM `search_log` WHERE Query_Text LIKE %s",
+            ('%' + s_filter.get() + '%',)
+        )
+        for r in cursor.fetchall():
+            search_tree.insert("", tk.END, values=r)
+
+    def delete_search():
+        selected = search_tree.focus()
+        if not selected:
+            messagebox.showwarning("Select Row", "Please select a row to delete.")
+            return
+        log_id = search_tree.item(selected, "values")[0]
+        execute("DELETE FROM `search_log` WHERE Log_id=%s", (log_id,))
+        load_search_log()
+
+    s_filter.bind("<KeyRelease>", filter_search)
+
+    tk.Button(s_top, text="Delete Selected", bg="#c0392b", fg="white",
+              command=delete_search).pack(side="left", padx=10)
+    tk.Button(s_top, text="Show All",
+              command=load_search_log).pack(side="left", padx=5)
+
+    load_search_log()
+    
+    # ================= VIEW COUNT =================
+    vc_frame = ttk.Frame(notebook)
+    notebook.add(vc_frame, text="View Count")
+
+    vc_tree = create_tree(vc_frame, ("Article_id", "Views"))
+
+    def load_view_count():
+        vc_tree.delete(*vc_tree.get_children())
+        cursor.execute("""
+            SELECT Article_id, COUNT(*) 
+            FROM article_view 
+            GROUP BY Article_id
+        """)
+        for r in cursor.fetchall():
+            vc_tree.insert("", tk.END, values=r)
+
+    tk.Button(vc_frame, text="Refresh", command=load_view_count).pack(pady=10)
+
+    load_view_count()
+
+# ================= VIEWS BY AGE CATEGORY =================
+    age_frame = ttk.Frame(notebook)
+    notebook.add(age_frame, text="Views by Age")
+
+    age_top = ttk.Frame(age_frame)
+    age_top.pack(fill="x", padx=10, pady=8)
+    tk.Label(age_top, text="Article Views Grouped by User Age Category",
+             font=("Arial", 11, "bold")).pack(side="left")
+
+    age_tree = create_tree(age_frame, ("Age_Category", "Article_Name", "Number_of_Views"))
+
+    def load_age_views():
+        age_tree.delete(*age_tree.get_children())
+        cursor.execute("""
+            SELECT 
+                CASE 
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 18 AND 25 THEN '18-25'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 26 AND 35 THEN '26-35'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 36 AND 45 THEN '36-45'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 46 AND 55 THEN '46-55'
+                    ELSE '55+'
+                END AS Age_Category,
+                a.Title AS Article_Name,
+                COUNT(*) AS Number_of_Views
+            FROM `article_view` av
+            JOIN `user` u ON av.User_id = u.User_id
+            JOIN `article` a ON av.Article_id = a.Article_id
+            GROUP BY Age_Category, a.Title
+            ORDER BY Age_Category, Number_of_Views DESC
+        """)
+        rows = cursor.fetchall()
+        last_age = None
+        for r in rows:
+            if r[0] != last_age:
+                if last_age is not None:
+                    # separator row
+                    age_tree.insert("", tk.END, values=("", "", ""))
+                last_age = r[0]
+                age_tree.insert("", tk.END, values=(r[0], r[1], r[2]))
+            else:
+                age_tree.insert("", tk.END, values=("", r[1], r[2]))
+
+    tk.Button(age_top, text="Refresh", command=load_age_views).pack(side="right", padx=10)
+    load_age_views()
+
+    
+    # ================= REPORTS =================
+    report_frame = ttk.Frame(notebook)
+    notebook.add(report_frame, text="Reports")
+
+    def chart_views():
+        cursor.execute("SELECT Article_id,COUNT(*) FROM `article_view` GROUP BY Article_id")
+        data = cursor.fetchall()
+        if data:
+            plt.figure()
+            plt.bar([r[0] for r in data],[r[1] for r in data])
+            plt.title("Article Views")
+            plt.show()
+
+    def chart_comments():
+        cursor.execute("SELECT Article_id,COUNT(*) FROM `comment` GROUP BY Article_id")
+        data = cursor.fetchall()
+        if data:
+            plt.figure()
+            plt.pie([r[1] for r in data],labels=[r[0] for r in data],autopct='%1.1f%%')
+            plt.title("Comments Distribution")
+            plt.show()
+
+    def chart_user_activity():
+        cursor.execute("SELECT User_id, COUNT(*) FROM `comment` GROUP BY User_id")
+        data = cursor.fetchall()
+        if data:
+            plt.figure()
+            plt.bar([r[0] for r in data],[r[1] for r in data])
+            plt.title("User Activity (Comments per User)")
+            plt.show()
+
+    def chart_articles_category():
+        cursor.execute("SELECT Category_ID, COUNT(*) FROM `article_category` GROUP BY Category_ID")
+        data = cursor.fetchall()
+        if data:
+            plt.figure()
+            plt.pie([r[1] for r in data],labels=[r[0] for r in data],autopct='%1.1f%%')
+            plt.title("Articles per Category")
+            plt.show()
+
+    def chart_tag_usage():
+        cursor.execute("""
+            SELECT t.Name, COUNT(*) 
+            FROM `article_tag` at_
+            JOIN `tag` t ON at_.TAG_ID = t.Tag_ID
+            GROUP BY t.Name
+            ORDER BY COUNT(*) DESC
+        """)
+        data = cursor.fetchall()
+        if data:
+            labels = [r[0] for r in data]
+            values = [r[1] for r in data]
+            fig, ax = plt.subplots(figsize=(14, 6))
+            ax.bar(labels, values, color="#4a90d9", edgecolor="black", linewidth=0.7)
+            ax.set_title("Tag Usage", fontsize=16, fontweight="bold", pad=15)
+            ax.set_xlabel("Tag Name", fontsize=12, labelpad=10)
+            ax.set_ylabel("Number of Articles", fontsize=12, labelpad=10)
+            ax.set_xticks(range(len(labels)))
+            ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=10)
+            ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+            ax.set_ylim(0, max(values) + 1)
+            ax.grid(axis="y", linestyle="--", alpha=0.5)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            for i, v in enumerate(values):
+                ax.text(i, v + 0.05, str(v), ha="center", va="bottom",
+                        fontsize=11, fontweight="bold")
+            plt.tight_layout()
+            plt.show()
+
+    def chart_media_usage():
+        cursor.execute("""
+            SELECT a.Title, COUNT(*) 
+            FROM `media` m
+            JOIN `article` a ON m.Article_id = a.Article_id
+            GROUP BY a.Title
+            ORDER BY COUNT(*) DESC
+        """)
+        data = cursor.fetchall()
+        if data:
+            labels = [r[0] for r in data]
+            values = [r[1] for r in data]
+            fig, ax = plt.subplots(figsize=(14, 6))
+            ax.bar(labels, values, color="#27ae60", edgecolor="black", linewidth=0.7)
+            ax.set_title("Media per Article", fontsize=16, fontweight="bold", pad=15)
+            ax.set_xlabel("Article Title", fontsize=12, labelpad=10)
+            ax.set_ylabel("Number of Media", fontsize=12, labelpad=10)
+            ax.set_xticks(range(len(labels)))
+            ax.set_xticklabels(labels, rotation=45, ha="right", fontsize=10)
+            ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+            ax.set_ylim(0, max(values) + 1)
+            ax.grid(axis="y", linestyle="--", alpha=0.5)
+            ax.spines["top"].set_visible(False)
+            ax.spines["right"].set_visible(False)
+            for i, v in enumerate(values):
+                ax.text(i, v + 0.05, str(v), ha="center", va="bottom",
+                        fontsize=11, fontweight="bold")
+            plt.tight_layout()
+            plt.show()
+    tk.Button(report_frame, text="Views Chart",           command=chart_views).pack(pady=10)
+    tk.Button(report_frame, text="Comments Chart",        command=chart_comments).pack(pady=10)
+    tk.Button(report_frame, text="User Activity",         command=chart_user_activity).pack(pady=10)
+    tk.Button(report_frame, text="Articles per Category", command=chart_articles_category).pack(pady=10)
+    tk.Button(report_frame, text="Tag Usage",             command=chart_tag_usage).pack(pady=10)
+    tk.Button(report_frame, text="Media Usage",           command=chart_media_usage).pack(pady=10)
+    
+# ================= AGE CATEGORY CHARTS =================
+    tk.Label(report_frame, text="── Age Category Reports ──", font=("Arial", 10, "bold")).pack(pady=5)
+
+    def chart_most_popular_per_age():
+        cursor.execute("""
+            SELECT 
+                CASE 
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 18 AND 25 THEN '18-25'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 26 AND 35 THEN '26-35'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 36 AND 45 THEN '36-45'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 46 AND 55 THEN '46-55'
+                    ELSE '55+'
+                END AS Age_Category,
+                a.Title,
+                COUNT(*) AS Views
+            FROM `article_view` av
+            JOIN `user` u ON av.User_id = u.User_id
+            JOIN `article` a ON av.Article_id = a.Article_id
+            GROUP BY Age_Category, a.Title
+            ORDER BY Age_Category, Views DESC
+        """)
+        rows = cursor.fetchall()
+        if not rows:
+            messagebox.showinfo("No Data", "No article view data found.")
+            return
+
+        best = {}
+        for age, title, views in rows:
+            if age not in best:
+                best[age] = (title, views)
+
+        ages   = list(best.keys())
+        titles = [best[a][0] for a in ages]
+        views  = [best[a][1] for a in ages]
+        colors = ["#4a90d9", "#27ae60", "#e67e22", "#c0392b", "#8e44ad"]
+
+        fig, ax = plt.subplots(figsize=(14, 8))
+        bars = ax.bar(ages, views, color=colors[:len(ages)], width=0.5, edgecolor="black", linewidth=0.7)
+
+        ax.set_title("Most Popular Article per Age Group", fontsize=16, fontweight="bold", pad=20)
+        ax.set_xlabel("Age Group", fontsize=13, labelpad=10)
+        ax.set_ylabel("Number of Views", fontsize=13, labelpad=10)
+        ax.set_xticks(range(len(ages)))
+        ax.set_xticklabels(ages, fontsize=12)
+        ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        ax.set_ylim(0, max(views) + 4)
+        ax.grid(axis="y", linestyle="--", alpha=0.5)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+        # Count inside the bar in white
+        for bar, v in zip(bars, views):
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() / 2,
+                    str(v), ha="center", va="center",
+                    fontsize=13, fontweight="bold",
+                    color="white")
+
+        # Article title on top of bar in bold italic
+        for bar, title in zip(bars, titles):
+            wrapped = "\n".join([title[j:j+20] for j in range(0, len(title), 20)])
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 0.15,
+                    wrapped,
+                    ha="center", va="bottom",
+                    fontsize=10, fontweight="bold",
+                    color="#333333", style="italic")
+
+        plt.tight_layout()
+        plt.show()
+
+
+
+    def chart_total_views_per_age():
+        cursor.execute("""
+            SELECT 
+                CASE 
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 18 AND 25 THEN '18-25'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 26 AND 35 THEN '26-35'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 36 AND 45 THEN '36-45'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 46 AND 55 THEN '46-55'
+                    ELSE '55+'
+                END AS Age_Category,
+                COUNT(*) AS Total_Views
+            FROM `article_view` av
+            JOIN `user` u ON av.User_id = u.User_id
+            GROUP BY Age_Category
+            ORDER BY Age_Category
+        """)
+        rows = cursor.fetchall()
+        if not rows:
+            messagebox.showinfo("No Data", "No article view data found.")
+            return
+
+        ages   = [r[0] for r in rows]
+        views  = [r[1] for r in rows]
+        colors = ["#4a90d9", "#27ae60", "#e67e22", "#c0392b", "#8e44ad"]
+
+        fig, ax = plt.subplots(figsize=(12, 6))
+        bars = ax.bar(ages, views, color=colors[:len(ages)], width=0.5,
+                      edgecolor="black", linewidth=0.7)
+
+        ax.set_title("Total Views per Age Group", fontsize=16, fontweight="bold", pad=20)
+        ax.set_xlabel("Age Group", fontsize=13, labelpad=10)
+        ax.set_ylabel("Total Views", fontsize=13, labelpad=10)
+        ax.set_xticks(range(len(ages)))
+        ax.set_xticklabels(ages, fontsize=12)
+        ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        ax.set_ylim(0, max(views) + 2)
+        ax.grid(axis="y", linestyle="--", alpha=0.5)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+        for bar, v in zip(bars, views):
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 0.1,
+                    str(v), ha="center", va="bottom",
+                    fontsize=13, fontweight="bold")
+
+        plt.tight_layout()
+        plt.show()
+
+
+    tk.Button(report_frame, text="Most Popular Article per Age Group", command=chart_most_popular_per_age).pack(pady=10)
+    tk.Button(report_frame, text="Total Views per Age Group",          command=chart_total_views_per_age).pack(pady=10)
+
+    def chart_search_keywords_per_age():
+        cursor.execute("""
+            SELECT 
+                CASE 
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 18 AND 25 THEN '18-25'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 26 AND 35 THEN '26-35'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 36 AND 45 THEN '36-45'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 46 AND 55 THEN '46-55'
+                    ELSE '55+'
+                END AS Age_Category,
+                s.Query_Text,
+                COUNT(*) AS Search_Count
+            FROM `search_log` s
+            JOIN `user` u ON s.User_id = u.User_id
+            GROUP BY Age_Category, s.Query_Text
+            ORDER BY Age_Category, Search_Count DESC
+        """)
+        rows = cursor.fetchall()
+        if not rows:
+            messagebox.showinfo("No Data", "No search log data found.")
+            return
+
+        # Get top keyword per age group
+        best = {}
+        for age, keyword, count in rows:
+            if age not in best:
+                best[age] = (keyword, count)
+
+        ages     = list(best.keys())
+        keywords = [best[a][0] for a in ages]
+        counts   = [best[a][1] for a in ages]
+        colors   = ["#4a90d9", "#27ae60", "#e67e22", "#c0392b", "#8e44ad"]
+
+        fig, ax = plt.subplots(figsize=(14, 7))
+        bars = ax.bar(ages, counts, color=colors[:len(ages)],
+                      width=0.5, edgecolor="black", linewidth=0.7)
+
+        ax.set_title("Most Used Search Keyword per Age Group",
+                     fontsize=16, fontweight="bold", pad=20)
+        ax.set_xlabel("Age Group", fontsize=13, labelpad=10)
+        ax.set_ylabel("Search Count", fontsize=13, labelpad=10)
+        ax.set_xticks(range(len(ages)))
+        ax.set_xticklabels(ages, fontsize=12)
+        ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        ax.set_ylim(0, max(counts) + 2)
+        ax.grid(axis="y", linestyle="--", alpha=0.5)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+
+        # Count inside the bar
+        for bar, v in zip(bars, counts):
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() / 2,
+                    str(v), ha="center", va="center",
+                    fontsize=13, fontweight="bold",
+                    color="white")
+
+        # Keyword on top of bar
+        for bar, kw in zip(bars, keywords):
+            ax.text(bar.get_x() + bar.get_width() / 2,
+                    bar.get_height() + 0.15,
+                    f'"{kw}"',
+                    ha="center", va="bottom",
+                    fontsize=11, fontweight="bold",
+                    color="#333333", style="italic")
+
+        ax.set_ylim(0, max(counts) + 3)
+        plt.tight_layout()
+        plt.show()
+        
+        plt.subplots_adjust(bottom=0.3)
+        plt.tight_layout()
+        plt.show()
+
+    def chart_age_vs_category():
+        cursor.execute("""
+            SELECT 
+                CASE 
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 18 AND 25 THEN '18-25'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 26 AND 35 THEN '26-35'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 36 AND 45 THEN '36-45'
+                    WHEN TIMESTAMPDIFF(YEAR, u.DOB, CURDATE()) BETWEEN 46 AND 55 THEN '46-55'
+                    ELSE '55+'
+                END AS Age_Category,
+                c.Name AS Category_Name,
+                COUNT(*) AS Views
+            FROM `article_view` av
+            JOIN `user` u ON av.User_id = u.User_id
+            JOIN `article` a ON av.Article_id = a.Article_id
+            JOIN `article_category` ac ON a.Article_id = ac.Article_ID
+            JOIN `category` c ON ac.Category_ID = c.Category_id
+            GROUP BY Age_Category, c.Name
+            ORDER BY Age_Category, Views DESC
+        """)
+        rows = cursor.fetchall()
+        if not rows:
+            messagebox.showinfo("No Data", "No data found.")
+            return
+
+        # Build data structure
+        age_groups = sorted(set(r[0] for r in rows))
+        categories = sorted(set(r[1] for r in rows))
+
+        # Build a dict {age: {category: views}}
+        data_dict = {age: {cat: 0 for cat in categories} for age in age_groups}
+        for age, cat, views in rows:
+            data_dict[age][cat] = views
+
+        import numpy as np
+        x      = np.arange(len(age_groups))
+        n_cats = len(categories)
+        width  = 0.8 / n_cats
+        colors = plt.cm.tab10.colors
+
+        fig, ax = plt.subplots(figsize=(16, 7))
+
+        for i, cat in enumerate(categories):
+            vals = [data_dict[age][cat] for age in age_groups]
+            offset = (i - n_cats / 2) * width + width / 2
+            bars = ax.bar(x + offset, vals, width=width,
+                          label=cat, color=colors[i % len(colors)],
+                          edgecolor="black", linewidth=0.5)
+            for bar, v in zip(bars, vals):
+                if v > 0:
+                    ax.text(bar.get_x() + bar.get_width() / 2,
+                            bar.get_height() + 0.05,
+                            str(v), ha="center", va="bottom",
+                            fontsize=7, fontweight="bold")
+
+        ax.set_title("Age Group vs Category Preference",
+                     fontsize=16, fontweight="bold", pad=20)
+        ax.set_xlabel("Age Group", fontsize=13, labelpad=10)
+        ax.set_ylabel("Number of Views", fontsize=13, labelpad=10)
+        ax.set_xticks(x)
+        ax.set_xticklabels(age_groups, fontsize=12)
+        ax.yaxis.set_major_locator(plt.MaxNLocator(integer=True))
+        ax.grid(axis="y", linestyle="--", alpha=0.5)
+        ax.spines["top"].set_visible(False)
+        ax.spines["right"].set_visible(False)
+        ax.legend(title="Category", bbox_to_anchor=(1.01, 1),
+                  loc="upper left", fontsize=9, title_fontsize=10)
+
+        plt.tight_layout()
+        plt.show()
+
+    tk.Button(report_frame, text="Most Used Search Keyword per Age Group", command=chart_search_keywords_per_age).pack(pady=10)
+    tk.Button(report_frame, text="Age Group vs Category Preference",       command=chart_age_vs_category).pack(pady=10)
+    root.mainloop()
+
+
+# =========================================================
+#  ENTRY POINT
+# =========================================================
+if __name__ == "__main__":
+    home_screen()
+    cursor.close()
+    conn.close()
